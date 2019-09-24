@@ -1,0 +1,6 @@
+0.1.8.1, 2/2/2016 -- Forked from Invitae public repo. Made setup.py all self-installing (fixed numpy disaster).
+0.1.8.2, 3/21/2016 -- tweaks for better package-ization.
+0.1.8.3, 5/5/2016 -- GeneDB selection bugfixes and improvements.
+0.1.8.4, 6/30/2016 -- plugged SQL injection holes.
+0.5, 10/12/2016 -- MEDGEN-PRIME... arbitrarily setting version number to 0.5 for distance from Invitae's medgen.
+0.6, 7/31/2019 -- Medgen-Prime becomes Python3 compatible only.

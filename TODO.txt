@@ -1,0 +1,1 @@
+* fix tests with respect to SQL injection fixes

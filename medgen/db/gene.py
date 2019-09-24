@@ -27,14 +27,13 @@ class GeneBorg:
         """
         ncbi_gene_id = self._db.get_gene_id(ncbi_gene_id)
         if ncbi_gene_id not in self.__gene2pubmed:
-            self.__gene2pubmed[ncbi_gene_id] = self._db.fetchall("select PMID from gene2pubmed where GeneID = %s",
-                                                str(ncbi_gene_id))
+            self.__gene2pubmed[ncbi_gene_id] = self._db.fetchall('select PMID from gene2pubmed where GeneID = "{}"'.format(ncbi_gene_id))
             self.cnt += 1
         return self.__gene2pubmed[ncbi_gene_id]
 
     def get_gene_id_for_gene_name(self, hgnc_gene_name_symbol):
         if hgnc_gene_name_symbol not in self.__gene2id:
-            self.__gene2id[hgnc_gene_name_symbol] = self._db.fetchID("select GeneID as ID from gene_info where Symbol = %s limit 1", str(hgnc_gene_name_symbol).upper())
+            self.__gene2id[hgnc_gene_name_symbol] = self._db.fetchID('select GeneID as ID from gene_info where Symbol = "{}" limit 1'.format(hgnc_gene_name_symbol.upper()))
             self.cnt += 1
 
         return self.__gene2id[hgnc_gene_name_symbol]
@@ -82,7 +81,7 @@ class GeneDB(SQLData):
         :return: OMIM identifiers with links to MedGen.
         """
         ncbi_gene_id = self.get_gene_id(ncbi_gene_id)
-        return self.fetchall("select * from mim2gene_medgen where GeneID = %s", str(ncbi_gene_id))
+        return self.fetchall('select * from mim2gene_medgen where GeneID = {}'.format(ncbi_gene_id))
 
     def gene_function(self, ncbi_gene_id):
         """
@@ -93,8 +92,7 @@ class GeneDB(SQLData):
         :return: SQL result GeneRIF with list of pubmeds
         """
         ncbi_gene_id = self.get_gene_id(ncbi_gene_id)
-        return self.fetchall("select distinct pubmeds, GeneRIF from generifs_basic  where GeneID = %s",
-                             str(ncbi_gene_id))
+        return self.fetchall('select distinct pubmeds, GeneRIF from generifs_basic where GeneID = {}'.format(ncbi_gene_id))
 
     def get_gene_id(self, gene):
         """
@@ -119,7 +117,7 @@ class GeneDB(SQLData):
         :return: string
         """
         ncbi_gene_id = self.get_gene_id(ncbi_gene_id)
-        return self.fetchID("select Symbol as ID from gene_info where GeneID = %s limit 1", str(ncbi_gene_id))
+        return self.fetchID('select Symbol as ID from gene_info where GeneID = {} limit 1'.format(ncbi_gene_id))
 
     def get_gene_info(self, ncbi_gene_id):
         """
@@ -149,7 +147,7 @@ class GeneDB(SQLData):
         +--------------+------------------+------+-----+---------+-------+
         """
         ncbi_gene_id = self.get_gene_id(ncbi_gene_id)
-        return self.fetchrow("select * from gene_info where GeneID = %s limit 1", str(ncbi_gene_id))
+        return self.fetchrow('select * from gene_info where GeneID = %s limit 1'.format(ncbi_gene_id))
 
     def get_gene_synonyms(self, symbol):
         """
@@ -165,7 +163,7 @@ class GeneDB(SQLData):
                         symbol                # identity Nomen_symbol placement
                        )
         _sql = """select Synonyms, Symbol, GeneID from gene_info where 
-        Symbol = %s OR
+            Symbol = %s OR
             (Synonyms   = %s or
             Synonyms like %s or
             Synonyms like %s or

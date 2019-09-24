@@ -173,14 +173,6 @@ def clinvar2pmid_with_accessions(hgvs_list):
                 ret.append({"hgvs_text": cite['HGVS'], "pmid": pmid, "accession": cite['RCVaccession']})
     return ret
 
-def reimplementation_required(name, ret):
-    def func(*args, **kwargs):
-        print(name, 'is deprecated and cannot be used until it is reimplemented.')
-        print(args)
-        print(kwargs)
-        return ret
-    return func
-
 
 ##########################################################################################
 #
@@ -188,8 +180,8 @@ def reimplementation_required(name, ret):
 #
 ##########################################################################################
 
-NCBIVariantReport  = reimplementation_required('NCBIVariantReport', dict()) #_ncbi_variant_report_service
-NCBIVariantPubmeds = reimplementation_required('NCBIVariantPubmeds', [])    #_ncbi_variant_pubmeds
+NCBIVariantReport  = _ncbi_variant_report_service
+NCBIVariantPubmeds = _ncbi_variant_pubmeds
 ClinvarAccession   = _clinvar_variant_accession
 ClinvarAlleleID    = _clinvar_variant_allele_id
 ClinvarPubmeds     = _clinvar_variant2pubmed

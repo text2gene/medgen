@@ -321,6 +321,7 @@ class ClinVarDB(SQLData):
         :return:
         """
         return self.list_genes("select Symbol as gene_name from gene_condition_source_id where ConceptID = '%s' " % cui)
+
     def get_version(self):
         '''
         Get the ClinVar version

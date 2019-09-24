@@ -1,92 +1,18 @@
+""" Variant-level annotation functions requiring ClinvarDB and Metapub (NCBI/eutils). """
+
 import requests, json, urllib
 
 from metapub.text_mining import is_pmcid, is_ncbi_bookID 
 from metapub.pubmedcentral import get_pmid_for_otherid
 
 from ..db.clinvar import ClinVarDB
-from ..log import log, IS_DEBUG_ENABLED
+from ..log import log
 
 ##########################################################################################
 #
 #   Functions
 #
 ##########################################################################################
-
-
-def _ncbi_variant_report_service(hgvs_text):
-    """
-    Return results from API query to the NCBI Variant Reporter Service
-    See documentation at:
-    http://www.ncbi.nlm.nih.gov/variation/tools/reporter
-    :param hgvs_text: ( c.DNA | r.RNA | p.Protein | g.Genomic )
-    :return: JSON (dictionary)
-    """
-    #r = requests.post("http://www.ncbi.nlm.nih.gov/projects/SNP/VariantAnalyzer/var_rep.cgi", data={"annot1": hgvs_text})
-    hgvs_text = str(hgvs_text)
-    r = requests.get("http://www.ncbi.nlm.nih.gov/projects/SNP/VariantAnalyzer/var_rep.cgi?annot1={}".format(urllib.parse.quote(hgvs_text)))
-    res = r.text
-
-    if 'Error' in res:
-        error_str = 'An error occurred when using the NCBI Variant Report Service: "{}"\n'.format(res)
-        error_str += 'To reproduce, visit: http://www.ncbi.nlm.nih.gov/projects/SNP/VariantAnalyzer/var_rep.cgi?annot1={}'.format(hgvs_text)
-        raise RuntimeError(error_str)
-
-    if IS_DEBUG_ENABLED:
-        log.debug(res)
-
-    res = res.split('\n')
-    res = filter(
-        lambda x: x != '' and not str.startswith(str(x), '.') and not str.startswith(str(x), '##') and not str.startswith(str(x), "Submitted"),
-        res)
-    res = map(lambda x: x.split('\t'), res)
-    keys = map(lambda x: x.strip('# '), res[0])
-    values = res[1:]
-    res = map(lambda x: dict(zip(keys, x)), values)
-    for r in res:
-        if r.has_key('PMIDs'):
-            if len(r['PMIDs']) == 0:
-                r['PMIDs'] = []
-            else:
-                r['PMIDs'] = r.get('PMIDs').replace(', ', ';').split(';')
-
-    return res
-
-
-def _ncbi_variant_pubmeds(hgvs_text=None):
-    """
-    Retrieve PMIDs for a variant from the NCBI Variant Reporter Service
-    :param hgvs_text:  ( c.DNA | r.RNA | p.Protein | g.Genomic )
-    :return: list(PMID)
-    """
-    _report  = _ncbi_variant_report_service(hgvs_text)
-    _pubmeds = None
-
-    for _row in _report:
-        _pubmeds = _row['PMIDs']
-        if _pubmeds is not None:
-            for _pmid in _pubmeds:
-                if len(str(_pmid)) > 1:
-                    pass
-
-    return map(int, _pubmeds)
-
-def _service_report_accession(hgvs_text=None):
-    """
-    Retrieve accession for a variant from the NCBI Variant Reporter Service
-    :param hgvs_text: ( c.DNA | r.RNA | p.Protein | g.Genomic )
-    :return: Accession (clinvar | dbSNP | dbVar)
-    """
-    _report  = _ncbi_variant_report_service(hgvs_text)
-
-    for _row in _report:
-        _accession = _row['ClinVar Accession']
-
-        if _accession is not None:
-            if len(str(_accession)) > 1:
-                    return _accession
-
-    log.debug("Variant accession not found in clinvar for "+ str(hgvs_text))
-    return None
 
 def _clinvar_variant_accession(hgvs_text):
     """
@@ -173,14 +99,6 @@ def clinvar2pmid_with_accessions(hgvs_list):
                 ret.append({"hgvs_text": cite['HGVS'], "pmid": pmid, "accession": cite['RCVaccession']})
     return ret
 
-def reimplementation_required(name, ret):
-    def func(*args, **kwargs):
-        print(name, 'is deprecated and cannot be used until it is reimplemented.')
-        print(args)
-        print(kwargs)
-        return ret
-    return func
-
 
 ##########################################################################################
 #
@@ -188,8 +106,6 @@ def reimplementation_required(name, ret):
 #
 ##########################################################################################
 
-NCBIVariantReport  = reimplementation_required('NCBIVariantReport', dict()) #_ncbi_variant_report_service
-NCBIVariantPubmeds = reimplementation_required('NCBIVariantPubmeds', [])    #_ncbi_variant_pubmeds
 ClinvarAccession   = _clinvar_variant_accession
 ClinvarAlleleID    = _clinvar_variant_allele_id
 ClinvarPubmeds     = _clinvar_variant2pubmed

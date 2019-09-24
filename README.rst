@@ -67,8 +67,6 @@ API (frequency used, not extensive list)
 * Gene2PubMed?
 * GeneSynonyms?
 * MedGenDB?
-* NCBIVariantReport?
-* NCBIVariantPubmeds?
 * PMID2Article?
 * PMCID2Article?
 * SQLData?

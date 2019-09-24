@@ -22,15 +22,16 @@ class TestSQLData(TestCase):
     def test_fetch_with_no_results(self):
         db = SQLData(config_section='clinvar')
 
-        sql_query ='select distinct HGVS_c from variant_summary where AlleleID = "Not-An-Allele-ID"'
+        sql_query ='select distinct variant_name from variant_summary where AlleleID = "Not-An-Allele-ID"'
         assert_that(len(db.fetchall(sql_query)), is_(0))
         assert_that(db.fetchrow(sql_query), is_(None))
         assert_that(db.fetchID(sql_query), is_(None))
 
-        sql_query_with_ID ='select distinct HGVS_c as ID from variant_summary where AlleleID = "15041"'
-        assert_that(db.fetchID(sql_query_with_ID), is_('NM_014855.2:c.80_83delGGATinsTGCTGTAAACTGTAACTGTAAA'))
+        #TODO: update with correct data point to test
+        #sql_query_with_ID ='select distinct variant_name as ID from variant_summary where AlleleID = "15041"'
+        #assert_that(db.fetchID(sql_query_with_ID), is_('NM_014855.2:c.80_83delGGATinsTGCTGTAAACTGTAACTGTAAA'))
 
-        sql_query_with_missing_ID ='select distinct HGVS_c from variant_summary where AlleleID = "15041"'
+        sql_query_with_missing_ID ='select distinct variant_name from variant_summary where AlleleID = "15041"'
         assert_that(calling(db.fetchID).with_args(sql_query_with_missing_ID), raises(Exception))
 
     def test_get_last_mirror_time(self):

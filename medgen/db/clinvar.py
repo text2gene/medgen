@@ -201,13 +201,8 @@ class ClinVarDB(SQLData):
         :param num_examples:
         :return: list of hgvs variants
         """
-        return list(self.hgvs_text(
-            'select distinct(HGVS) as HGVS '
-            'from molecular_consequences '
-            'where HGVS '
-            'like "NM%" '
-            'order by rand() '
-            'limit ' + str(num_examples)))
+        cmd = 'select distinct(HGVS) as HGVS from molecular_consequences where HGVS like "NM%" order by rand() limit {}'.format(num_examples)
+        return [item['HGVS'] for item in self.fetchall(cmd)]
 
     def disease_name(self, concept):
         """

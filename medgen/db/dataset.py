@@ -86,7 +86,10 @@ class SQLData(object):
         :rtype: list
         """
         # this line opens a cursor, executes, gets the data, and closes the cursor.
-        results = self.cursor(select_sql % args).fetchall()
+        if args:
+            results = self.cursor(select_sql % args).fetchall()
+        else:
+            results = self.cursor(select_sql).fetchall()
         return results
 
     def fetchrow(self, select_sql, *args):

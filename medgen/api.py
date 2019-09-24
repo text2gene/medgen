@@ -17,8 +17,7 @@ from .db.clinvar import ClinVarDB
 ##########################################################################
 # annotate
 
-from .annotate.ncbi_variant import NCBIVariantPubmeds, NCBIVariantReport
-from .annotate.ncbi_variant import ClinvarPubmeds, ClinvarAccession, ClinvarAlleleID, ClinvarVariationID
+from .annotate.variant import ClinvarPubmeds, ClinvarAccession, ClinvarAlleleID, ClinvarVariationID
 
 from .annotate.gene    import GeneID, GeneName
 from .annotate.gene    import GeneInfo,    GeneSynonyms, GeneNamePreferred

@@ -5,3 +5,4 @@
 0.5, 10/12/2016 -- MEDGEN-PRIME... arbitrarily setting version number to 0.5 for distance from Invitae's medgen.
 0.6, 7/31/2019 -- Medgen-Prime becomes Python3 compatible only.
 0.7, 9/24/2019 -- Removed NCBI Variant Report service support (you should use the metavariant library instead).
+0.7.5, 10/4/2019 -- Vast improvements in MySQLdb string handling (affects implementations of SQLDataset functions).

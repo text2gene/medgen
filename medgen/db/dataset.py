@@ -20,7 +20,6 @@ SQLDATE_FMT = '%Y-%m-%d %H:%M:%S'
 def EscapeString(conn, value):
     value = value.encode("utf-8")
     value = conn.escape_string(value)
-    from IPython import embed; embed()
     return '"{}"'.format(value)
 
 def SQLdatetime(pydatetime_or_string):

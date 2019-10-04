@@ -17,9 +17,10 @@ DEFAULT_PASS = 'medgen'
 DEFAULT_DATASET = 'medgen'
 
 SQLDATE_FMT = '%Y-%m-%d %H:%M:%S'
-def EscapeString(value):
+def EscapeString(conn, value):
     value = value.encode("utf-8")
-    #value = MySQLdb.escape_string(value)
+    value = conn.escape_string(value)
+    from IPython import embed; embed()
     return '"{}"'.format(value)
 
 def SQLdatetime(pydatetime_or_string):
@@ -62,13 +63,25 @@ class SQLData(object):
                                    )
         return self.conn
 
-    def cursor(self, execute_sql=None):
+    def cursor(self, execute_sql=None, *args):
         if not self.conn:
             self.connect()
         cursor = self.conn.cursor(cursors.DictCursor)
 
         if execute_sql is not None:
-            cursor.execute(execute_sql)
+            if args:
+                escaped = []
+                for arg in args:
+                    if type(arg) is str:
+                        escaped.append(EscapeString(self.conn, arg))
+                    else:
+                        escaped.append(arg)
+                cursor.execute(execute_sql % escaped)
+            else:
+                # we have to do this if-then approach because otherwise cursor.execute will
+                # interpret any stray % as belonging to a string interp placeholder (as in 
+                # 'where x LIKE "%blah"')
+                cursor.execute(execute_sql)
 
         return cursor
 
@@ -86,10 +99,10 @@ class SQLData(object):
         :rtype: list
         """
         # this line opens a cursor, executes, gets the data, and closes the cursor.
-        if args:
-            results = self.cursor(select_sql % args).fetchall()
-        else:
-            results = self.cursor(select_sql).fetchall()
+        #if args:
+        results = self.cursor(select_sql, *args).fetchall()
+        #else:
+        #    results = self.cursor(select_sql).fetchall()
         return results
 
     def fetchrow(self, select_sql, *args):
@@ -115,24 +128,6 @@ class SQLData(object):
                 raise RuntimeError("No ID column found.  SQL query: %s" % select_sql)
         return None  # no results found
 
-    # DEMOLITION / Probably not needed
-    #def list_concepts(self, select_sql):
-    #    """
-    #    Fetch list of concepts
-    #    :param select_sql: query
-    #    :return: list cui
-    #    """
-    #    return self.fetchlist(select_sql, 'CUI')
-
-    # DEMOLITION / Probably not needed
-    #def list_genes(self, select_sql):
-    #    """
-    #    Fetch list of genes
-    #    :param select_sql: query
-    #    :return: list HGNC
-    #    """
-    #   return self.fetchlist(select_sql, 'gene_name')
-
     def insert(self, tablename, field_value_dict):
         """ Takes a tablename (should be found in selected DB) and a dictionary mapping
         column and value pairs, and inserts the dictionary as a row in target table.
@@ -150,8 +145,10 @@ class SQLData(object):
             fields.append(key)
             values.append(val)
 
+        # send values to the cursor to be escaped individually. precompose the rest.
         sql = 'insert into {} ({}) values ({});'.format(tablename, ','.join(fields), ','.join(['%s' for v in values]))
         cursor = self.execute(sql, *values)
+
         cursor.close()
         return self.conn.insert_id()
 
@@ -162,28 +159,36 @@ class SQLData(object):
         :param: field_value_dict: map of field=value
         :return: row_id (integer) (returns 0 if insert failed)
         """
-        fields = []
-        values = []
-
         clauses = []
+        str_vals = []
 
         for key, val in field_value_dict.items():
-            clause = '%s=' % key
+            clause = '{}='.format(key)
             # surround strings and datetimes with quotation marks
             if val == None:
                 clause += 'NULL'
             elif hasattr(val, 'strftime'):
-                clause += '"%s"' % val.strftime(SQLDATE_FMT)
+                clause += '"{}"'.format(val.strftime(SQLDATE_FMT))
             elif hasattr(val, 'lower'):
-                clause += EscapeString(val)  #surrounds strings with quotes and unicodes them.
+                clause += '%s'
+                str_vals.append(val)
             else:
                 clause += str(val)
             clauses.append(clause)
 
-        sql = 'update '+tablename+' set %s where %s=%i;' % (', '.join(clauses), id_col_name, row_id)
-        queryobj = self.execute(sql)
-        # retrieve and return the row id of the insert. returns 0 if insert failed.
-        return queryobj.lastInsertID
+        # former approach: prebuild the whole statement before sending to cursor.
+        #sql = 'update '+tablename+' set %s where %s=%i;' % (', '.join(clauses), id_col_name, row_id)
+        #queryobj = self.execute(sql)
+
+        set_sql = ','.join(clauses)
+        where_sql = '{}={}'.format(id_col_name, row_id)
+
+        # WIP: send certain args to the cursor for escaping.
+        sql = 'update '+tablename+' set ' + set_sql + ' where ' + where_sql
+        queryobj = self.execute(sql, *str_vals)
+
+        # retrieve and return the row id of the update. returns 0 if failed.
+        return self.conn.insert_id()
 
     def delete(self, tablename, field_value_dict):
         """
@@ -195,30 +200,31 @@ class SQLData(object):
             raise RuntimeError("Do not support delete without a WHERE clause")
 
         where_sql = ''
+        str_vals = []
         for key, val in field_value_dict.items():
             if val == None:
-                val = 'NULL'
-                where_sql += 'AND {} is NULL '.format(key)
-            # surround strings and datetimes with quotation marks
+                where_sql += 'AND {} is NULL'.format(key)
             elif hasattr(val, 'strftime'):
                 val = '"%s"' % val.strftime(SQLDATE_FMT)
                 where_sql += 'AND {}={} '.format(key, val)
             elif hasattr(val, 'lower'):
-                val = EscapeString(val)  # surrounds strings with quotes and unicodes them.
-                where_sql += 'AND {}={} '.format(key, val)
+                where_sql += 'AND {}=%s '.format(key)
+                str_vals.append(val)
             else:
-                val = str(val)
                 where_sql += 'AND {}={} '.format(key, val)
+                            
 
+        # strip out the first "AND" in the generated SQL, since it is spurious.
         where_sql = where_sql[len('AND '):]
 
         sql = 'delete from {} where {}'.format(tablename, where_sql)
 
-        cursor = self.execute(sql)
-        #TODO: does this do anything? work at all?? eek.
-        result = cursor.fetchone()
+        cursor = self.execute(sql, *str_vals)
+        # This was in here, dunno if this does anything?? or what it's supposed to do!?  eek. 
+        #result = cursor.fetchone()
         cursor.close()
-        return result
+        #TODO: find a way to report on whether this operation worked (collect output from cursor.execute() ?)
+        return True
 
     def drop_table(self, tablename):
         cursor = self.execute('drop table if exists ' + tablename)
@@ -314,10 +320,10 @@ class SQLData(object):
         :return: datetime if found
         """
         sql_query = 'SELECT event_time FROM log WHERE entity_name = "%s" AND message like "rows loaded %s" ORDER BY event_time DESC limit 1'
-        result = self.fetchrow(sql_query, entity_name, '%')
+        sql_query = sql_query % (entity_name, '%')
+        result = self.fetchrow(sql_query)
         if result:
             return result['event_time']
-        sql_query = sql_query % (entity_name, '%')
         raise RuntimeError('Query "%s" returned no results. Have you loaded the %s table?' % (sql_query, entity_name))
 
     def create_index(self, table, colspec):

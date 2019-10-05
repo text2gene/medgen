@@ -18,9 +18,14 @@ DEFAULT_DATASET = 'medgen'
 
 SQLDATE_FMT = '%Y-%m-%d %H:%M:%S'
 def EscapeString(conn, value):
+    if type(value) is bytes:
+        # assume it's already escaped to hell
+        return value
+        #return b'"' + value + b'"'
     value = value.encode("utf-8")
-    value = conn.escape_string(value)
-    return '"{}"'.format(value)
+    value = conn.escape_string(value).decode()  #convert from bytes back to unicode because URGUHGHGHGHhgh
+    return value
+    #return '"{}"'.format(value)
 
 def SQLdatetime(pydatetime_or_string):
     if hasattr(pydatetime_or_string, 'strftime'):
@@ -48,9 +53,6 @@ class SQLData(object):
         # will be connected upon first query, or can be set up "manually" by doing self.connect()
         self.conn = None
 
-        #DEMOLITION / cruft from PySQLPool
-        #self.commitOnEnd = kwargs.get('commitOnEnd', True) or config.get(self._cfg_section, 'commitOnEnd')
-
     def connect(self):
         self.conn = MySQLdb.connect(passwd=self._db_pass,
                                     user=self._db_user,
@@ -66,16 +68,25 @@ class SQLData(object):
         if not self.conn:
             self.connect()
         cursor = self.conn.cursor(cursors.DictCursor)
+    
+        #DEBUG
+        #print('@@@@@')
+        #print('DEBUG: %s' % execute_sql)
+        #print(args)
+        #print('@@@@@')
 
         if execute_sql is not None:
             if args:
                 escaped = []
                 for arg in args:
-                    if type(arg) is str:
+                    if hasattr(arg, 'lower'):
+                        # ^ this covers bytes, str, and whatever else python comes up with for strings.
                         escaped.append(EscapeString(self.conn, arg))
                     else:
                         escaped.append(arg)
-                cursor.execute(execute_sql % escaped)
+                #print('@@@ escaped args:')
+                #print(escaped)
+                cursor.execute(execute_sql, escaped)
             else:
                 # we have to do this if-then approach because otherwise cursor.execute will
                 # interpret any stray % as belonging to a string interp placeholder (as in 
@@ -97,11 +108,7 @@ class SQLData(object):
         :returns: results as list of dictionaries
         :rtype: list
         """
-        # this line opens a cursor, executes, gets the data, and closes the cursor.
-        #if args:
         results = self.cursor(select_sql, *args).fetchall()
-        #else:
-        #    results = self.cursor(select_sql).fetchall()
         return results
 
     def fetchrow(self, select_sql, *args):
@@ -146,9 +153,7 @@ class SQLData(object):
 
         # send values to the cursor to be escaped individually. precompose the rest.
         sql = 'insert into {} ({}) values ({});'.format(tablename, ','.join(fields), ','.join(['%s' for v in values]))
-        cursor = self.execute(sql, *values)
-
-        cursor.close()
+        self.execute(sql, *values)
         return self.conn.insert_id()
 
     def update(self, tablename, id_col_name, row_id, field_value_dict):
@@ -175,17 +180,12 @@ class SQLData(object):
                 clause += str(val)
             clauses.append(clause)
 
-        # former approach: prebuild the whole statement before sending to cursor.
-        #sql = 'update '+tablename+' set %s where %s=%i;' % (', '.join(clauses), id_col_name, row_id)
-        #queryobj = self.execute(sql)
-
         set_sql = ','.join(clauses)
         where_sql = '{}={}'.format(id_col_name, row_id)
-
-        # WIP: send certain args to the cursor for escaping.
         sql = 'update '+tablename+' set ' + set_sql + ' where ' + where_sql
-        queryobj = self.execute(sql, *str_vals)
 
+        # TODO: do we need this result?
+        result = self.execute(sql, *str_vals)
         # retrieve and return the row id of the update. returns 0 if failed.
         return self.conn.insert_id()
 
@@ -212,16 +212,12 @@ class SQLData(object):
             else:
                 where_sql += 'AND {}={} '.format(key, val)
                             
-
         # strip out the first "AND" in the generated SQL, since it is spurious.
         where_sql = where_sql[len('AND '):]
 
         sql = 'delete from {} where {}'.format(tablename, where_sql)
 
         cursor = self.execute(sql, *str_vals)
-        # This was in here, dunno if this does anything?? or what it's supposed to do!?  eek. 
-        #result = cursor.fetchone()
-        cursor.close()
         #TODO: find a way to report on whether this operation worked (collect output from cursor.execute() ?)
         return True
 
@@ -245,20 +241,17 @@ class SQLData(object):
         :param sql: (str)
         :return: MySQLdb cursor object
         """
-        #try:
         log.debug('SQL.execute ' + sql, *args)
-        #except TypeError as error:
-        #    log.info('Arguments do not match number of string interpolations in SQL statement.')
-        #    log.info('  SQL was: %s' % sql)
-        #    log.info('  Args: %r' % args)
 
-        try:
-            cursor = self.cursor(sql % args)
-        except Exception as err:
-            log.info('Medgen SQL ERROR: %r' % err)
-            full_sql = sql % args
-            log.info('Tripped on a piece of SQL: ' + full_sql)
+        # TODO: re-evaluate flow control here.
+        #try:
+        cursor = self.cursor(sql, *args)
         return cursor 
+        #except Exception as err:
+        #    log.info('Medgen SQL ERROR: %r' % err)
+        #    full_sql = sql % args
+        #    log.info('Tripped on a piece of SQL: ' + full_sql)
+        #    return None
 
     def ping(self):
         """
